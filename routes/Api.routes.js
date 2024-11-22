@@ -17,13 +17,13 @@ router.route("/login").post(async (req, res, next) => {
 
 	try {
 		const userLogin = await user.findOne({ email });
-		if (!user) {
-			return res.status(401).json({ message: "Invalid email " });
+		if (!userLogin) {
+			return res.status(401).json({ message: "InvalidEmail" });
 		}
 
 		const isMatch = await bcrypt.compare(password, userLogin.password);
 		if (!isMatch) {
-			return res.status(401).json({ message: "Invalid password" });
+			return res.status(401).json({ message: "InvalidPassword" });
 		}
 
 		const token = jwt.sign({ id: userLogin._id, email: userLogin.email }, JWT_SECRET, { expiresIn: "1h" });
@@ -32,6 +32,17 @@ router.route("/login").post(async (req, res, next) => {
 	} catch (err) {
 		console.error("Error during login:", err);
 		res.status(500).json({ message: "Server error" });
+	}
+});
+
+router.route("/get-users").get(async (req, res) => {
+	try {
+		// Fetch all users
+		const users = await user.find(); // Fetches all documents in the 'user' collection
+		res.status(200).json(users);
+	} catch (err) {
+		console.error("Error fetching users:", err);
+		res.status(500).json({ message: "Internal server error." });
 	}
 });
 
@@ -356,19 +367,43 @@ router.get("/getCattleRecords", async (req, res) => {
 
 router.post("/addCattleRecords", async (req, res) => {
 	try {
-		const { rfid, weight, date, user } = req.body;
+		// Extract data from the request body
+		const { rfid, weight, date, userEmail } = req.body;
+		console.log(req.body);
 
-		// Create a new cattle record
+		// Validate input
+		if (!rfid || !weight || !date || !userEmail) {
+			return res.status(400).json({ message: "All fields are required." });
+		}
+		console.log(userEmail);
+		// Find user by email
+		const userRecord = await user.findOne({ email: userEmail }); // Assuming `user` is an email address
+		if (!userRecord) {
+			return res.status(404).json({ message: "User not found." });
+		}
+
+		// Create a new cattle record with user ID reference
 		const cattleRecord = await WeightCattle.create({
 			rfid,
 			weight,
 			date,
-			user, // Save the user ID reference
+			user: userRecord._id, // Save the ObjectId of the user
 		});
 
-		res.json(cattleRecord);
+		// Log the created record
+		console.log("Cattle record created:", cattleRecord);
+
+		// Send response back
+		res.status(200).json(cattleRecord);
 	} catch (error) {
-		res.status(400).json({ message: "Error adding cattle record", error });
+		// Log error details for debugging
+		console.error("Error adding cattle record:", error);
+
+		// Send error response
+		res.status(500).json({
+			message: "Error adding cattle record",
+			error: error.message,
+		});
 	}
 });
 

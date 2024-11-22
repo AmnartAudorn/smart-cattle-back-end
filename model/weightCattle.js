@@ -9,7 +9,7 @@ const weightCattle = new mongoose.Schema({
 		required: true,
 	},
 	weight: {
-		type: Number,
+		type: String,
 		required: true,
 	},
 	date: {
